@@ -5,7 +5,7 @@
     <h1>⚙️ Configuración</h1>
 </div>
 
-<div class="cards-grid">
+<div class="cards-grid" hx-get="/api/sync/status" hx-trigger="load" hx-swap="innerHTML">
     <div class="card">
         <div class="card-label">📧 Gmail API</div>
         <p class="text-muted"><small>OAuth 2.0 — archivo credentials/gmail_oauth.json</small></p>
@@ -17,23 +17,18 @@
         <span class="badge badge-warning">⏳ Pendiente</span>
     </div>
     <div class="card">
-        <div class="card-label">🛒 Shopify</div>
-        <p class="text-muted"><small>Client Credentials OAuth</small></p>
+        <div class="card-label">☁️ ReadyCloud</div>
+        <p class="text-muted"><small>API v2 — OAuth2 Bearer Token</small></p>
         <span class="badge badge-warning">⏳ Pendiente</span>
     </div>
     <div class="card">
-        <div class="card-label">📦 UPS Tracking</div>
-        <p class="text-muted"><small>Gratis, OAuth 2.0</small></p>
+        <div class="card-label">📦 UPS</div>
+        <p class="text-muted"><small>Tracking + Rates</small></p>
         <span class="badge badge-warning">⏳ Pendiente</span>
     </div>
     <div class="card">
-        <div class="card-label">📦 FedEx Tracking</div>
-        <p class="text-muted"><small>Gratis, 100K req/día</small></p>
-        <span class="badge badge-warning">⏳ Pendiente</span>
-    </div>
-    <div class="card">
-        <div class="card-label">📦 USPS Tracking</div>
-        <p class="text-muted"><small>Requiere MID</small></p>
+        <div class="card-label">📦 USPS</div>
+        <p class="text-muted"><small>Tracking + Rates</small></p>
         <span class="badge badge-warning">⏳ Pendiente</span>
     </div>
 </div>

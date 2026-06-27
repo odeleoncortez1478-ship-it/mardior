@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Request, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from mardior.config.settings import settings
-from mardior.db.storage import Storage
+from mardior.db.storage import Storage, Email
 from mardior.db.seed import seed_demo_data
 from mardior.shipping.comparator import ShippingComparator
-from mardior.worker.shopify_sync import ShopifySyncer
-from mardior.web.auth import check_auth
+from mardior.worker.readycloud_sync import ReadyCloudSyncer
+from mardior.web.auth import (
+    verify_password, create_session, get_session_token,
+    validate_session, destroy_session, get_csrf_token,
+    check_auth, require_csrf,
+)
 
 router = APIRouter()
 storage = Storage()
@@ -15,13 +19,65 @@ storage = Storage()
 
 @router.post("/auth/login")
 async def login(request: Request):
-    data = await request.json()
-    if data.get("password") == settings.dashboard_password:
-        resp = JSONResponse({"success": True, "redirect": "/dashboard"})
-        resp.set_cookie(key="mardior_auth", value=settings.dashboard_password, httponly=True)
+    data = await request.form()
+    password = data.get("password", "")
+
+    if verify_password(password):
+        session_token = create_session()
+        csrf_token = get_csrf_token(session_token)
+        storage.log_audit("login", ip_address=request.client.host if request.client else "")
+
+        resp = JSONResponse({"success": True})
+        resp.set_cookie(
+            key="mardior_session", value=session_token,
+            httponly=True, samesite="lax",
+        )
+        resp.set_cookie(
+            key="mardior_csrf", value=csrf_token,
+            httponly=False, samesite="lax",
+        )
         resp.headers.append("HX-Redirect", "/dashboard")
         return resp
-    raise HTTPException(status_code=401, detail="Contrasena incorrecta")
+
+    storage.log_audit("login_failed", ip_address=request.client.host if request.client else "")
+    return HTMLResponse(
+        '<div class="card" style="max-width:400px;width:100%;margin:auto;">'
+        '<h1 style="text-align:center;margin-bottom:2rem;">MARDIOR</h1>'
+        '<form hx-post="/api/auth/login" hx-target="body" hx-swap="outerHTML">'
+        '<div class="form-group">'
+        '<label>Contrasena</label>'
+        '<input type="password" name="password" class="form-input" placeholder="Ingresa la contrasena" required>'
+        '</div>'
+        '<p class="text-danger" style="text-align:center;">Contrasena incorrecta</p>'
+        '<button type="submit" class="btn btn-primary" style="width:100%;">Entrar</button>'
+        '</form></div>',
+        status_code=401,
+    )
+
+
+@router.post("/auth/logout")
+async def logout(request: Request):
+    session_token = get_session_token(request)
+    if session_token:
+        destroy_session(session_token)
+    resp = JSONResponse({"success": True})
+    resp.delete_cookie("mardior_session")
+    resp.delete_cookie("mardior_csrf")
+    return resp
+
+
+@router.get("/csrf")
+async def get_csrf(request: Request):
+    await check_auth(request)
+    session_token = get_session_token(request)
+    token = get_csrf_token(session_token) if session_token else ""
+    return {"csrf_token": token}
+
+
+@router.get("/email-counts")
+async def get_email_counts(request: Request):
+    await check_auth(request)
+    return storage.get_email_counts()
 
 
 @router.get("/stats")
@@ -31,14 +87,18 @@ async def get_stats(request: Request):
 
 
 @router.get("/emails")
-async def get_emails(request: Request, limit: int = 50, offset: int = 0, classification: str = None):
+async def get_emails(request: Request, limit: int = 50, offset: int = 0, classification: str = None, filter: str = None):
     await check_auth(request)
-    emails = storage.get_emails(limit, offset, classification)
+    total_filter = filter or classification
+    emails = storage.get_emails(limit, offset, classification, filter)
     results = []
     for e in emails:
         d = {
             "id": e.id, "gmail_message_id": e.gmail_message_id, "from_name": e.from_name,
             "from_address": e.from_address, "subject": e.subject, "body_text": e.body_text[:300] if e.body_text else "",
+            "summary": e.summary or "",
+            "needs_attention": bool(e.needs_attention),
+            "attention_reason": e.attention_reason or "",
             "received_at": str(e.received_at) if e.received_at else "",
             "classification": e.classification, "confidence": e.confidence,
             "linked_order_id": e.linked_order_id,
@@ -46,7 +106,7 @@ async def get_emails(request: Request, limit: int = 50, offset: int = 0, classif
             "response_sent": e.response_sent, "response_status": e.response_status,
         }
         results.append(d)
-    return {"emails": results, "total": storage.count_emails(classification)}
+    return {"emails": results, "total": storage.count_emails(total_filter)}
 
 
 @router.get("/orders")
@@ -56,7 +116,7 @@ async def get_orders(request: Request, limit: int = 100, offset: int = 0, status
     results = []
     for o in orders:
         d = {
-            "shopify_id": o.shopify_id, "order_number": o.order_number,
+            "id": o.id, "readycloud_id": o.readycloud_id, "order_number": o.order_number,
             "customer_email": o.customer_email, "customer_name": o.customer_name,
             "total_price": o.total_price, "currency": o.currency,
             "financial_status": o.financial_status, "fulfillment_status": o.fulfillment_status,
@@ -98,12 +158,12 @@ async def get_influencers(request: Request):
 
 
 @router.post("/sync/orders")
+@require_csrf
 async def sync_orders(request: Request):
     await check_auth(request)
-    if not settings.shopify_shop:
-        return {"synced": 0, "error": "Shopify no configurado. Agrega SHOPIFY_SHOP en .env"}
-    syncer = ShopifySyncer(token=settings.shopify_client_secret)
+    syncer = ReadyCloudSyncer()
     count = await syncer.sync_orders()
+    storage.log_audit("sync_orders", ip_address=request.client.host if request.client else "", details=f"synced={count}")
     return {"synced": count}
 
 
@@ -131,7 +191,50 @@ async def get_llm_cost(request: Request):
 
 
 @router.post("/seed")
+@require_csrf
 async def seed_data(request: Request):
     await check_auth(request)
     seed_demo_data()
+    storage.log_audit("seed_data", ip_address=request.client.host if request.client else "")
     return {"success": True, "message": "Datos de demo insertados"}
+
+
+@router.post("/emails/{email_id}/reply")
+@require_csrf
+async def reply_email(request: Request, email_id: int):
+    await check_auth(request)
+    data = await request.form()
+    response_body = data.get("response_body", "")
+    if not response_body:
+        raise HTTPException(status_code=400, detail="response_body requerido")
+    storage.update_email(email_id, {
+        "response_sent": True,
+        "response_body": response_body,
+        "response_status": "draft",
+    })
+    storage.log_audit("reply_email", ip_address=request.client.host if request.client else "", details=f"email_id={email_id}")
+    return {"success": True, "message": "Respuesta guardada"}
+
+
+@router.put("/orders/{order_id}/shipping")
+@require_csrf
+async def update_order_shipping(request: Request, order_id: int):
+    await check_auth(request)
+    data = await request.form()
+    carrier = data.get("carrier", "")
+    tracking_number = data.get("tracking_number", "")
+    fulfillment_id = data.get("fulfillment_id", None)
+    with storage.get_session() as session:
+        from mardior.db.schema import Fulfillment
+        if fulfillment_id:
+            f = session.query(Fulfillment).filter(Fulfillment.id == int(fulfillment_id)).first()
+            if f:
+                if carrier:
+                    f.carrier = carrier
+                if tracking_number:
+                    f.tracking_number = tracking_number
+                session.commit()
+                storage.log_audit("update_shipping", ip_address=request.client.host if request.client else "",
+                                  details=f"order_id={order_id}, carrier={carrier}, tn={tracking_number}")
+                return {"success": True}
+    raise HTTPException(status_code=404, detail="Fulfillment no encontrado")

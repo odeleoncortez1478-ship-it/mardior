@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime
 from email.utils import parsedate_to_datetime
 from mardior.gmail.client import GmailClient
@@ -15,7 +14,7 @@ class GmailPoller:
         self.storage = Storage()
 
     async def poll(self):
-        messages = await asyncio.to_thread(self.gmail.list_messages, "is:unread", 50)
+        messages = await self.gmail.list_messages("is:unread", 50)
         new_count = 0
 
         for msg_summary in messages:
@@ -24,7 +23,7 @@ class GmailPoller:
             if self.storage.get_email_by_gmail_id(msg_id):
                 continue
 
-            full_msg = await asyncio.to_thread(self.gmail.get_message, msg_id)
+            full_msg = await self.gmail.get_message(msg_id)
             parsed = self.parser.parse_message(full_msg)
             parsed["from_address"] = self.parser.extract_email_from_header(
                 next((h["value"] for h in full_msg.get("payload", {}).get("headers", []) if h["name"] == "From"), "")

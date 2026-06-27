@@ -56,12 +56,12 @@ async def shipping_page(request: Request):
     return templates.TemplateResponse(request, "shipping.html")
 
 
-@router.get("/influencers", response_class=HTMLResponse)
+@router.get("/influencers")
 async def influencers_page(request: Request):
     redirect = await auth_or_redirect(request)
     if redirect:
         return redirect
-    return templates.TemplateResponse(request, "influencers.html")
+    return RedirectResponse(url="/emails?filter=influencer")
 
 
 @router.get("/settings", response_class=HTMLResponse)
@@ -70,3 +70,11 @@ async def settings_page(request: Request):
     if redirect:
         return redirect
     return templates.TemplateResponse(request, "settings.html")
+
+
+@router.get("/ads", response_class=HTMLResponse)
+async def ads_page(request: Request):
+    redirect = await auth_or_redirect(request)
+    if redirect:
+        return redirect
+    return templates.TemplateResponse(request, "ads.html")

@@ -7,7 +7,7 @@ from mardior.config.settings import settings
 from mardior.db.storage import Storage
 from mardior.notifications.sounds import SoundNotifier
 from mardior.worker.gmail_poll import GmailPoller
-from mardior.worker.shopify_sync import ShopifySyncer
+from mardior.worker.readycloud_sync import ReadyCloudSyncer
 from mardior.worker.llm_pipeline import LLMPipeline
 
 
@@ -17,7 +17,7 @@ class WorkerRunner:
         self.storage = Storage()
         self.sounds = SoundNotifier()
         self.gmail_poller = GmailPoller()
-        self.shopify_syncer = ShopifySyncer()
+        self.readycloud_syncer = ReadyCloudSyncer()
         self.llm_pipeline = LLMPipeline()
 
     async def run_once(self):
@@ -36,9 +36,11 @@ class WorkerRunner:
         self.sounds.play_startup()
 
         poll_interval = settings.gmail_poll_interval_minutes * 60
-        last_shopify_sync = datetime.min
+        rc_sync_interval = settings.readycloud_sync_interval_hours * 3600
+        last_rc_sync = datetime.min
 
         print(f"[MARDIOR] Worker iniciado. Poll cada {settings.gmail_poll_interval_minutes} min.")
+        print(f"[MARDIOR] Sync ReadyCloud cada {settings.readycloud_sync_interval_hours} h.")
         print(f"[MARDIOR] Dashboard: http://localhost:{settings.api_port}")
 
         while self.running:
@@ -50,11 +52,11 @@ class WorkerRunner:
                     if v:
                         print(f"[{now.strftime('%H:%M:%S')}] {k}: {v}")
 
-            if (now - last_shopify_sync).total_seconds() > 21600:
-                synced = await self.shopify_syncer.sync_orders()
+            if (now - last_rc_sync).total_seconds() > rc_sync_interval:
+                synced = await self.readycloud_syncer.sync_orders()
                 if synced:
-                    print(f"[{now.strftime('%H:%M:%S')}] Shopify: {synced} ordenes sincronizadas")
-                last_shopify_sync = now
+                    print(f"[{now.strftime('%H:%M:%S')}] ReadyCloud: {synced} ordenes sincronizadas")
+                last_rc_sync = now
 
             await asyncio.sleep(poll_interval)
 

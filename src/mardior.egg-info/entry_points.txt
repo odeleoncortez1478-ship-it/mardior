@@ -1,0 +1,2 @@
+[console_scripts]
+mardior = mardior.__main__:run

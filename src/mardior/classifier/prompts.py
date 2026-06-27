@@ -1,19 +1,37 @@
-CLASSIFY_PROMPT = """Clasifica el siguiente email de una tienda Shopify.
+CLASSIFY_PROMPT = """Clasifica el siguiente email de una tienda en linea.
 
-Categorías:
-- tracking: El cliente pregunta por el estatus de su envío, proporciona un número de tracking, o reporta problemas con la entrega (no llegó, llegó dañado, retraso, etc.)
+Categorias:
+- tracking: El cliente pregunta por tracking, estatus de envio, numero de seguimiento, o reporta problemas con la entrega
+- complaint: El cliente esta molesto, reporta un problema grave (producto danado, no llego, cobro incorrecto), quiere cancelar, o amenaza con demanda
+- refund: Solicita devolucion de dinero, cambio de producto, o reporta que le cobraron de mas
+- distributor: La persona quiere ser distribuidor, revendedor, comprar al mayoreo, o vender los productos en su tienda
+- partnership: Propone una asociacion comercial, joint venture, colaboracion entre marcas, o proyecto conjunto
 - influencer: Un influencer/creador de contenido ofrece promocionar productos a cambio de producto gratis o pago
-- ads: Ofertas de publicidad, marketing, SEO, servicios de promoción
-- other: Cualquier otra cosa (facturas, consultas generales, spam, etc.)
+- ads: Ofertas de publicidad, marketing, SEO, diseno web, servicios de promocion
+- other: Cualquier otra cosa (facturas, consultas generales, proveedores, empleo, spam, etc.)
 
-Responde SOLO con el nombre de la categoría en minúsculas, nada más.
+Responde SOLO con un JSON valido con estos campos exactos:
+1. "category": una de las categorias de arriba
+2. "summary": resumen de 1-2 oraciones en espanol de lo que trata el email
+3. "needs_attention": true si requiere atencion humana, false si puede ser automatico
+4. "attention_reason": texto corto explicando por que requiere atencion ("" si needs_attention es false)
+
+Reglas para needs_attention:
+- complaint → siempre necesita atencion
+- refund → necesita atencion
+- distributor → necesita atencion (oportunidad de negocio)
+- partnership → necesita atencion (oportunidad de negocio)
+- influencer → necesita atencion (oportunidad de negocio)
+- tracking → NO necesita atencion (se responde automaticamente) A MENOS que sea queja o problema grave
+- ads → NO necesita atencion
+- other → depende del contenido
 
 Asunto: {subject}
 De: {from_addr}
 Cuerpo: {body}"""
 
 
-DECIDE_PROMPT = """Eres un asistente de atención al cliente para una tienda Shopify.
+DECIDE_PROMPT = """Eres un asistente de atencion al cliente para una tienda en linea.
 Basado en la siguiente información, decide qué hacer.
 
 EMAIL del cliente:

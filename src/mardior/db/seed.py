@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-from mardior.db.schema import Order, OrderItem, Fulfillment, Email, ClassificationLog, ShippingProfile, ShippingRate
+from mardior.db.schema import Order, OrderItem, Fulfillment, Email, ClassificationLog, ShippingRate
 from mardior.db.storage import Storage
 
 
@@ -17,7 +17,7 @@ def seed_demo_data():
         # ─── Orders ───
         orders_data = [
             {
-                "shopify_id": "gid://shopify/Order/1001",
+                "readycloud_id": "rc-1001",
                 "order_number": 1001,
                 "customer_email": "maria@email.com",
                 "customer_name": "María García",
@@ -25,11 +25,12 @@ def seed_demo_data():
                 "currency": "USD",
                 "financial_status": "paid",
                 "fulfillment_status": "fulfilled",
+                "shipping_price": 12.00,
                 "created_at": now - timedelta(days=5),
                 "updated_at": now - timedelta(days=3),
             },
             {
-                "shopify_id": "gid://shopify/Order/1002",
+                "readycloud_id": "rc-1002",
                 "order_number": 1002,
                 "customer_email": "carlos@email.com",
                 "customer_name": "Carlos López",
@@ -37,11 +38,12 @@ def seed_demo_data():
                 "currency": "USD",
                 "financial_status": "paid",
                 "fulfillment_status": "unfulfilled",
+                "shipping_price": 15.00,
                 "created_at": now - timedelta(days=2),
                 "updated_at": now - timedelta(days=1),
             },
             {
-                "shopify_id": "gid://shopify/Order/1003",
+                "readycloud_id": "rc-1003",
                 "order_number": 1003,
                 "customer_email": "ana@email.com",
                 "customer_name": "Ana Martínez",
@@ -49,11 +51,12 @@ def seed_demo_data():
                 "currency": "MXN",
                 "financial_status": "paid",
                 "fulfillment_status": "fulfilled",
+                "shipping_price": 20.00,
                 "created_at": now - timedelta(days=7),
                 "updated_at": now - timedelta(days=5),
             },
             {
-                "shopify_id": "gid://shopify/Order/1004",
+                "readycloud_id": "rc-1004",
                 "order_number": 1004,
                 "customer_email": "jose@email.com",
                 "customer_name": "José Hernández",
@@ -61,11 +64,12 @@ def seed_demo_data():
                 "currency": "USD",
                 "financial_status": "paid",
                 "fulfillment_status": "fulfilled",
+                "shipping_price": 11.50,
                 "created_at": now - timedelta(days=10),
                 "updated_at": now - timedelta(days=8),
             },
             {
-                "shopify_id": "gid://shopify/Order/1005",
+                "readycloud_id": "rc-1005",
                 "order_number": 1005,
                 "customer_email": "laura@email.com",
                 "customer_name": "Laura Torres",
@@ -73,34 +77,37 @@ def seed_demo_data():
                 "currency": "MXN",
                 "financial_status": "paid",
                 "fulfillment_status": "in_transit",
+                "shipping_price": 25.00,
                 "created_at": now - timedelta(days=1),
                 "updated_at": now,
             },
         ]
 
+        order_objs = []
         for od in orders_data:
-            session.add(Order(**od))
-
+            obj = Order(**od)
+            session.add(obj)
+            order_objs.append(obj)
         session.flush()
 
         # ─── Order Items ───
         items_data = [
-            {"order_id": "gid://shopify/Order/1001", "product_title": "Zapatos Nike Air Max", "quantity": 1, "price": 89.99, "sku": "ZK-001"},
-            {"order_id": "gid://shopify/Order/1002", "product_title": "Camisa Polo Ralph Lauren", "quantity": 2, "price": 45.00, "sku": "PL-202"},
-            {"order_id": "gid://shopify/Order/1002", "product_title": "Gorra New Era", "quantity": 1, "price": 55.50, "sku": "NE-055"},
-            {"order_id": "gid://shopify/Order/1003", "product_title": "Bolsa Michael Kors", "quantity": 1, "price": 250.00, "sku": "MK-500"},
-            {"order_id": "gid://shopify/Order/1004", "product_title": "Reloj Casio G-Shock", "quantity": 1, "price": 67.30, "sku": "GS-100"},
-            {"order_id": "gid://shopify/Order/1005", "product_title": "Audífonos Sony WH-1000XM5", "quantity": 1, "price": 320.00, "sku": "SN-999"},
+            {"order_id": order_objs[0].id, "product_title": "Zapatos Nike Air Max", "quantity": 1, "price": 89.99, "sku": "ZK-001"},
+            {"order_id": order_objs[1].id, "product_title": "Camisa Polo Ralph Lauren", "quantity": 2, "price": 45.00, "sku": "PL-202"},
+            {"order_id": order_objs[1].id, "product_title": "Gorra New Era", "quantity": 1, "price": 55.50, "sku": "NE-055"},
+            {"order_id": order_objs[2].id, "product_title": "Bolsa Michael Kors", "quantity": 1, "price": 250.00, "sku": "MK-500"},
+            {"order_id": order_objs[3].id, "product_title": "Reloj Casio G-Shock", "quantity": 1, "price": 67.30, "sku": "GS-100"},
+            {"order_id": order_objs[4].id, "product_title": "Audífonos Sony WH-1000XM5", "quantity": 1, "price": 320.00, "sku": "SN-999"},
         ]
         for it in items_data:
             session.add(OrderItem(**it))
 
         # ─── Fulfillments ───
         fulf_data = [
-            {"order_id": "gid://shopify/Order/1001", "tracking_number": "1Z999AA10123456784", "carrier": "ups", "status": "delivered"},
-            {"order_id": "gid://shopify/Order/1003", "tracking_number": "79456789012345678901", "carrier": "usps", "status": "delivered"},
-            {"order_id": "gid://shopify/Order/1004", "tracking_number": "123456789012", "carrier": "fedex", "status": "delivered"},
-            {"order_id": "gid://shopify/Order/1005", "tracking_number": "1Z888BB20234567890", "carrier": "ups", "status": "in_transit"},
+            {"order_id": order_objs[0].id, "tracking_number": "1Z999AA10123456784", "carrier": "ups", "status": "delivered"},
+            {"order_id": order_objs[2].id, "tracking_number": "79456789012345678901", "carrier": "usps", "status": "delivered"},
+            {"order_id": order_objs[3].id, "tracking_number": "123456789012", "carrier": "fedex", "status": "delivered"},
+            {"order_id": order_objs[4].id, "tracking_number": "1Z888BB20234567890", "carrier": "ups", "status": "in_transit"},
         ]
         for f in fulf_data:
             session.add(Fulfillment(**f))
@@ -113,8 +120,10 @@ def seed_demo_data():
                 "subject": "¿Dónde está mi pedido?",
                 "body_text": "Hola, hice un pedido hace 5 días y el tracking dice entregado pero no lo recibí. ¿Pueden ayudarme?",
                 "received_at": now - timedelta(hours=2),
-                "classification": "tracking", "confidence": 0.98,
-                "linked_order_id": "gid://shopify/Order/1001", "linking_method": "email_match",
+                "classification": "complaint", "confidence": 0.98,
+                "summary": "La cliente reporta que su pedido aparece como entregado pero ella no lo recibio. Solicita ayuda para localizarlo.",
+                "needs_attention": True, "attention_reason": "posible robo o extravio",
+                "linked_order_id": order_objs[0].id, "linking_method": "email_match",
                 "tracking_fetched": True, "tracking_status": "delivered",
                 "response_sent": False,
             },
@@ -125,7 +134,9 @@ def seed_demo_data():
                 "body_text": "Buen día, quería saber el número de tracking de mi pedido #1005. Gracias.",
                 "received_at": now - timedelta(hours=5),
                 "classification": "tracking", "confidence": 0.95,
-                "linked_order_id": "gid://shopify/Order/1005", "linking_method": "order_number",
+                "summary": "La cliente solicita el numero de tracking de su pedido #1005.",
+                "needs_attention": False, "attention_reason": "",
+                "linked_order_id": order_objs[4].id, "linking_method": "order_number",
                 "tracking_fetched": True, "tracking_status": "in_transit",
                 "response_sent": True, "response_body": "Tu pedido #1005 está en camino con UPS. Tracking: 1Z888BB20234567890",
                 "response_status": "sent",
@@ -137,6 +148,8 @@ def seed_demo_data():
                 "body_text": "Hola! Soy creadora de contenido con 50K seguidores en Instagram. Me encantaría probar tus productos y hacerles review. ¿Les interesa una colaboración?",
                 "received_at": now - timedelta(hours=8),
                 "classification": "influencer", "confidence": 0.99,
+                "summary": "Influencer con 50K seguidores en Instagram ofrece probar productos y hacer review a cambio de producto gratis.",
+                "needs_attention": True, "attention_reason": "oportunidad de colaboracion",
                 "response_sent": False,
             },
             {
@@ -146,6 +159,8 @@ def seed_demo_data():
                 "body_text": "Te ofrecemos manejo profesional de Google Ads para tu tienda. Primera semana gratis. Contáctanos para más info.",
                 "received_at": now - timedelta(hours=12),
                 "classification": "ads", "confidence": 0.97,
+                "summary": "Agencia de publicidad ofrece servicios de Google Ads con primera semana gratis.",
+                "needs_attention": False, "attention_reason": "",
                 "response_sent": False,
             },
             {
@@ -154,8 +169,10 @@ def seed_demo_data():
                 "subject": "Devolución — Bolsa Michael Kors",
                 "body_text": "Compré una bolsa y llegó con un pequeño defecto. Quiero hacer una devolución. ¿Cómo procedo?",
                 "received_at": now - timedelta(days=1),
-                "classification": "tracking", "confidence": 0.85,
-                "linked_order_id": "gid://shopify/Order/1003",
+                "classification": "refund", "confidence": 0.92,
+                "summary": "La cliente recibio una bolsa con defecto y solicita instrucciones para devolverla y obtener reembolso.",
+                "needs_attention": True, "attention_reason": "devolucion por defecto",
+                "linked_order_id": order_objs[2].id,
                 "tracking_fetched": True, "tracking_status": "delivered",
                 "response_sent": False,
             },
@@ -166,6 +183,8 @@ def seed_demo_data():
                 "body_text": "Hola! Tengo 120K seguidores en TikTok y hago reviews de productos. Me gustaría recibir algunos productos para mostrarles a mi audiencia. Saludos!",
                 "received_at": now - timedelta(hours=3),
                 "classification": "influencer", "confidence": 0.98,
+                "summary": "Creadora de contenido con 120K seguidores en TikTok propone colaboracion para review de productos.",
+                "needs_attention": True, "attention_reason": "oportunidad de colaboracion",
                 "response_sent": False,
             },
             {
@@ -175,7 +194,9 @@ def seed_demo_data():
                 "body_text": "Ya pagué mi pedido hace 2 días y sigue sin enviarse. ¿Cuándo lo van a mandar?",
                 "received_at": now - timedelta(hours=1),
                 "classification": "tracking", "confidence": 0.96,
-                "linked_order_id": "gid://shopify/Order/1002", "linking_method": "email_match",
+                "summary": "El cliente pregunta por el estatus de envio de su pedido #1002 que ya pago pero aun no se envia.",
+                "needs_attention": False, "attention_reason": "",
+                "linked_order_id": order_objs[1].id, "linking_method": "email_match",
                 "tracking_fetched": False,
                 "response_sent": False,
             },
@@ -196,26 +217,15 @@ def seed_demo_data():
                 raw_response=email_data["classification"],
             ))
 
-        # ─── Shipping Profiles (demo) ───
-        sp = ShippingProfile(
-            shopify_profile_id="gid://shopify/DeliveryProfile/1",
-            name="Perfil General",
-        )
-        session.add(sp)
-        session.flush()
-
+        # ─── Shipping Rates (demo) ───
         rates_data = [
-            {"profile_id": sp.id, "zone": "México", "carrier": "UPS", "method_name": "UPS Standard", "shopify_price": 15.00, "real_price": 8.50},
-            {"profile_id": sp.id, "zone": "México", "carrier": "FedEx", "method_name": "FedEx Economy", "shopify_price": 12.00, "real_price": 9.00},
-            {"profile_id": sp.id, "zone": "México", "carrier": "USPS", "method_name": "USPS Priority", "shopify_price": 20.00, "real_price": 6.00},
-            {"profile_id": sp.id, "zone": "Estados Unidos", "carrier": "UPS", "method_name": "UPS Ground", "shopify_price": 12.00, "real_price": 12.00},
-            {"profile_id": sp.id, "zone": "Estados Unidos", "carrier": "FedEx", "method_name": "FedEx Ground", "shopify_price": 11.50, "real_price": 11.50},
-            {"profile_id": sp.id, "zone": "Estados Unidos", "carrier": "USPS", "method_name": "USPS First", "shopify_price": 13.50, "real_price": 13.50},
-            {"profile_id": sp.id, "zone": "Canadá", "carrier": "UPS", "method_name": "UPS Standard", "shopify_price": 18.00, "real_price": 14.00},
-            {"profile_id": sp.id, "zone": "Canadá", "carrier": "FedEx", "method_name": "FedEx Economy", "shopify_price": 22.00, "real_price": 18.50},
-            {"profile_id": sp.id, "zone": "Canadá", "carrier": "USPS", "method_name": "USPS Priority", "shopify_price": 25.00, "real_price": 10.00},
-            {"profile_id": sp.id, "zone": "Europa", "carrier": "UPS", "method_name": "UPS Express", "shopify_price": 35.00, "real_price": 28.00},
-            {"profile_id": sp.id, "zone": "Europa", "carrier": "FedEx", "method_name": "FedEx Intl", "shopify_price": 40.00, "real_price": 32.00},
+            {"zone": "México", "carrier": "UPS", "method_name": "UPS Standard", "store_price": 15.00, "real_price": 8.50, "source": "ups"},
+            {"zone": "México", "carrier": "USPS", "method_name": "USPS Priority", "store_price": 20.00, "real_price": 6.00, "source": "usps"},
+            {"zone": "Estados Unidos", "carrier": "UPS", "method_name": "UPS Ground", "store_price": 12.00, "real_price": 12.00, "source": "ups"},
+            {"zone": "Estados Unidos", "carrier": "USPS", "method_name": "USPS First", "store_price": 13.50, "real_price": 13.50, "source": "usps"},
+            {"zone": "Canadá", "carrier": "UPS", "method_name": "UPS Standard", "store_price": 18.00, "real_price": 14.00, "source": "ups"},
+            {"zone": "Canadá", "carrier": "USPS", "method_name": "USPS Priority", "store_price": 25.00, "real_price": 10.00, "source": "usps"},
+            {"zone": "Europa", "carrier": "UPS", "method_name": "UPS Express", "store_price": 35.00, "real_price": 28.00, "source": "ups"},
         ]
         for r in rates_data:
             session.add(ShippingRate(**r))

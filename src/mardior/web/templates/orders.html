@@ -1,14 +1,43 @@
 {% extends "base.html" %}
-{% block title %}Órdenes{% endblock %}
+{% block title %}Ordenes{% endblock %}
 {% block content %}
 <div class="page-header">
-    <h1>📦 Órdenes Shopify</h1>
-    <button class="btn btn-primary" hx-post="/api/sync/orders" hx-target="#sync-result" hx-swap="innerHTML">🔄 Sincronizar</button>
+    <h1>📦 Ordenes</h1>
+    <button class="btn btn-primary" hx-post="/api/sync/orders" hx-target="#sync-result" hx-swap="innerHTML">🔄 Sincronizar ReadyCloud</button>
 </div>
 <div id="sync-result"></div>
 
-<div class="table-container" hx-get="/api/orders" hx-trigger="load" hx-swap="innerHTML">
+<div id="orders-container" hx-get="/api/orders" hx-trigger="load" hx-swap="innerHTML">
     <p class="text-muted">Cargando...</p>
+</div>
+
+<div id="shipping-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <span>📬 Editar Envio</span>
+            <button class="modal-close" onclick="closeShippingModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="edit-order-id">
+            <input type="hidden" id="edit-fulfillment-id">
+            <div class="form-group">
+                <label>Paqueteria</label>
+                <select id="edit-carrier" class="form-input">
+                    <option value="ups">UPS</option>
+                    <option value="usps">USPS</option>
+                    <option value="fedex">FedEx</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Numero de Tracking</label>
+                <input type="text" id="edit-tracking" class="form-input" placeholder="Tracking number">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeShippingModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="saveShipping()">Guardar</button>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -16,29 +45,68 @@ document.body.addEventListener('htmx:beforeSwap', function(evt) {
     if (evt.detail.target.id === 'sync-result') {
         if (evt.detail.xhr.responseURL && evt.detail.xhr.responseURL.includes('/api/sync/orders')) {
             var data = JSON.parse(evt.detail.xhr.response);
-            evt.detail.target.innerHTML = `<div class="alert alert-success">✅ ${data.synced} órdenes sincronizadas</div>`;
+            evt.detail.target.innerHTML = '<div class="alert alert-success">✅ ' + data.synced + ' ordenes sincronizadas</div>';
             setTimeout(function() { evt.detail.target.innerHTML = ''; }, 3000);
         }
         return;
     }
-    if (evt.detail.target.id !== 'sync-result' && evt.detail.xhr.responseURL && evt.detail.xhr.responseURL.includes('/api/orders')) {
+    if (evt.detail.xhr.responseURL && evt.detail.xhr.responseURL.includes('/api/orders')) {
         var data = JSON.parse(evt.detail.xhr.response);
-        var html = '<table class="table"><thead><tr><th>#</th><th>Cliente</th><th>Total</th><th>Fulfillment</th><th>Tracking</th></tr></thead><tbody>';
+        var html = '<table class="table"><thead><tr><th>#</th><th>Cliente</th><th>Total</th><th>Paqueteria</th><th>Tracking</th><th>Estado</th><th></th></tr></thead><tbody>';
+        var carrierIcons = { ups: '📦', usps: '✉️', fedex: '📬' };
         data.orders.forEach(function(o) {
-            var trackings = (o.fulfillments || []).map(function(f) { return f.tracking_number || ''; }).join(', ') || '—';
-            var badgeClass = {fulfilled: 'badge-success', unfulfilled: 'badge-warning', in_transit: 'badge-info'}[o.fulfillment_status] || 'badge';
-            html += `<tr>
-                <td>#${o.order_number}</td>
-                <td><small>${o.customer_name || o.customer_email}</small></td>
-                <td>$${o.total_price}</td>
-                <td><span class="badge ${badgeClass}">${o.fulfillment_status || '—'}</span></td>
-                <td><small>${trackings}</small></td>
-            </tr>`;
+            var f = (o.fulfillments || [])[0] || {};
+            var carrier = f.carrier || '—';
+            var carrierIcon = carrierIcons[carrier] || '';
+            var tracking = f.tracking_number || '—';
+            var badgeClass = {fulfilled: 'badge-success', unfulfilled: 'badge-warning', in_transit: 'badge-info', partial: 'badge-info'}[o.fulfillment_status] || 'badge';
+            html += '<tr>' +
+                '<td>#' + o.order_number + '</td>' +
+                '<td><small>' + (o.customer_name || o.customer_email) + '</small></td>' +
+                '<td>$' + o.total_price + '</td>' +
+                '<td>' + carrierIcon + ' ' + carrier.toUpperCase() + '</td>' +
+                '<td><small>' + tracking + '</small></td>' +
+                '<td><span class="badge ' + badgeClass + '">' + (o.fulfillment_status || '—') + '</span></td>' +
+                '<td><button class="btn btn-sm btn-secondary" onclick="openShippingModal(' + o.id + ', ' + (f.id || 'null') + ', \'' + carrier + '\', \'' + tracking + '\')">✏️</button></td>' +
+            '</tr>';
         });
         html += '</tbody></table>';
         evt.detail.target.innerHTML = html;
         evt.detail.shouldSwap = false;
     }
 });
+
+function openShippingModal(orderId, fulfillmentId, carrier, tracking) {
+    document.getElementById('edit-order-id').value = orderId;
+    document.getElementById('edit-fulfillment-id').value = fulfillmentId || '';
+    document.getElementById('edit-carrier').value = carrier || 'ups';
+    document.getElementById('edit-tracking').value = tracking && tracking !== '—' ? tracking : '';
+    document.getElementById('shipping-modal').style.display = 'flex';
+}
+
+function closeShippingModal() {
+    document.getElementById('shipping-modal').style.display = 'none';
+}
+
+function saveShipping() {
+    var orderId = document.getElementById('edit-order-id').value;
+    var fulfillmentId = document.getElementById('edit-fulfillment-id').value;
+    var carrier = document.getElementById('edit-carrier').value;
+    var tracking = document.getElementById('edit-tracking').value;
+    var form = new FormData();
+    form.append('carrier', carrier);
+    form.append('tracking_number', tracking);
+    if (fulfillmentId) form.append('fulfillment_id', fulfillmentId);
+    fetch('/api/orders/' + orderId + '/shipping', {
+        method: 'PUT',
+        headers: { 'X-CSRF-Token': getCookie('mardior_csrf') },
+        body: form,
+    }).then(function(r) { return r.json(); }).then(function() {
+        closeShippingModal();
+        htmx.ajax('GET', '/api/orders', {target: '#orders-container', swap: 'innerHTML'});
+    }).catch(function() {
+        alert('Error al guardar');
+    });
+}
 </script>
 {% endblock %}

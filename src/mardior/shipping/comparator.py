@@ -14,20 +14,20 @@ class ShippingComparator:
 
         results = []
         for rate in rates:
-            diff = round(rate.shopify_price - (rate.real_price or rate.shopify_price), 2)
-            savings = rate.real_price and rate.shopify_price > rate.real_price
+            diff = round(rate.store_price - (rate.real_price or rate.store_price), 2)
+            savings = rate.real_price and rate.store_price > rate.real_price
             results.append({
                 "id": rate.id,
-                "profile_id": rate.profile_id,
                 "zone": rate.zone,
                 "carrier": rate.carrier,
                 "method": rate.method_name,
-                "shopify_price": rate.shopify_price,
+                "store_price": rate.store_price,
                 "real_price": rate.real_price,
+                "source": rate.source,
                 "difference": diff,
                 "has_savings": bool(savings),
-                "savings_amount": round(rate.shopify_price - rate.real_price, 2) if savings else 0,
-                "recommended": rate.real_price and rate.real_price < rate.shopify_price,
+                "savings_amount": round(rate.store_price - rate.real_price, 2) if savings else 0,
+                "recommended": rate.real_price and rate.real_price < rate.store_price,
             })
 
         return results

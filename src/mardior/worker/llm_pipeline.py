@@ -32,32 +32,35 @@ class LLMPipeline:
         stats = {"processed": 0, "classified": 0, "responded": 0, "notified": 0}
 
         for email in emails:
-            category, confidence, in_tok, out_tok, cost = await asyncio.to_thread(
-                self.classifier.classify, email.subject, email.from_address, email.body_text
+            result = await asyncio.to_thread(
+                self.classifier.classify_structured, email.subject, email.from_address, email.body_text
             )
 
             self.storage.update_email(email.id, {
-                "classification": category,
-                "confidence": confidence,
+                "classification": result["category"],
+                "summary": result["summary"],
+                "needs_attention": result["needs_attention"],
+                "attention_reason": result["attention_reason"],
                 "processed_at": datetime.utcnow(),
             })
 
             with self.storage.get_session() as session:
                 session.add(ClassificationLog(
                     email_id=email.id, model_used=self.classifier.model,
-                    input_tokens=in_tok, output_tokens=out_tok, cost=cost,
+                    input_tokens=result["input_tokens"], output_tokens=result["output_tokens"], cost=result["cost"],
                     raw_prompt=f"Clasificar: {email.subject[:50]}",
-                    raw_response=category,
+                    raw_response=result["category"],
                 ))
                 session.commit()
 
             stats["classified"] += 1
 
-            if category == "tracking":
+            cat = result["category"]
+            if cat == "tracking":
                 await self._handle_tracking(email, stats)
-            elif category == "influencer":
-                self._handle_influencer(email, stats)
-            elif category == "ads":
+            elif cat in ("influencer", "distributor", "partnership", "complaint", "refund"):
+                self._handle_attention(email, stats, cat)
+            elif cat == "ads":
                 pass
 
             stats["processed"] += 1
@@ -94,7 +97,7 @@ class LLMPipeline:
 
         if not tracking_numbers:
             with self.storage.get_session() as session:
-                order_obj = session.get(type(order), order.shopify_id)
+                order_obj = session.get(type(order), order.id)
                 if order_obj:
                     for f in order_obj.fulfillments:
                         if f.tracking_number:
@@ -103,7 +106,7 @@ class LLMPipeline:
         if tracking_numbers:
             carrier, tracking_number = tracking_numbers[0]
 
-        self.storage.update_email(email.id, {"linked_order_id": order.shopify_id})
+        self.storage.update_email(email.id, {"linked_order_id": order.id})
 
         tracking_data = None
         if carrier and tracking_number:
@@ -164,7 +167,12 @@ class LLMPipeline:
         if tracking_data.get("status") == "exception" or decision.get("status_update") == "dispute":
             self.sounds.play_exception()
 
-    async def _handle_influencer(self, email, stats: dict):
-        self.sounds.play_influencer()
+    async def _handle_attention(self, email, stats: dict, category: str):
+        if category == "influencer":
+            self.sounds.play_influencer()
+        elif category in ("distributor", "partnership"):
+            self.sounds.play_influencer()
+        elif category in ("complaint", "refund"):
+            self.sounds.play_exception()
         await self.gmail.modify_message(email.gmail_message_id, add_labels=["INBOX"])
         stats["notified"] += 1

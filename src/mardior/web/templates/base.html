@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#1a1a2e">
     <link rel="manifest" href="/static/manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -11,23 +11,76 @@
     <script src="https://unpkg.com/htmx.org@2.0.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="/static/app.css">
+    <script>
+        function getCookie(name) {
+            var match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+            return match ? match[2] : null;
+        }
+        document.body.addEventListener('htmx:configRequest', function(evt) {
+            var csrf = getCookie('mardior_csrf');
+            if (csrf) {
+                evt.detail.headers['X-CSRF-Token'] = csrf;
+            }
+        });
+        function toggleSidebar() {
+            document.querySelector('.sidebar').classList.toggle('open');
+            document.querySelector('.sidebar-backdrop').classList.toggle('show');
+        }
+    </script>
 </head>
-<body class="bg-dark text-light">
-    <nav class="nav">
-        <div class="nav-brand">MARDIOR</div>
-        <button class="nav-toggle" onclick="document.querySelector('.nav-menu').classList.toggle('show')">☰</button>
-        <div class="nav-menu">
-            <a href="/dashboard" class="nav-link">📊 Dashboard</a>
-            <a href="/emails" class="nav-link">📧 Emails</a>
-            <a href="/orders" class="nav-link">📦 Órdenes</a>
-            <a href="/shipping" class="nav-link">📬 Envíos</a>
-            <a href="/influencers" class="nav-link">📢 Influencers</a>
-            <a href="/settings" class="nav-link">⚙️</a>
+<body>
+    <div class="sidebar-backdrop" onclick="toggleSidebar()"></div>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <span class="sidebar-brand">MARDIOR</span>
+            <button class="sidebar-close" onclick="toggleSidebar()">&times;</button>
         </div>
-    </nav>
+        <nav class="sidebar-nav" id="sidebar-nav">
+            <a href="/dashboard" class="sidebar-link">📊 Dashboard</a>
+            <a href="/emails?filter=attention" class="sidebar-link attention-link" id="link-attention">⚠️ Atención <span class="sidebar-badge" id="badge-attention">0</span></a>
+            <a href="/emails?filter=responded" class="sidebar-link" id="link-responded">✅ Respondidos <span class="sidebar-badge" id="badge-responded">0</span></a>
+            <a href="/emails?filter=pending" class="sidebar-link" id="link-pending">❓ Pendientes <span class="sidebar-badge" id="badge-pending">0</span></a>
+            <a href="/emails" class="sidebar-link">📧 Todos los Emails</a>
+            <hr class="sidebar-divider">
+            <a href="/orders" class="sidebar-link">📦 Ordenes</a>
+            <a href="/shipping" class="sidebar-link">📬 Envios</a>
+            <a href="/influencers" class="sidebar-link">📢 Influencers</a>
+            <a href="/ads" class="sidebar-link">📯 Publicidad</a>
+            <hr class="sidebar-divider">
+            <a href="/settings" class="sidebar-link">⚙️ Configuracion</a>
+            <a href="#" class="sidebar-link" onclick="logout()" style="color:var(--danger);">🚪 Cerrar Sesion</a>
+        </nav>
+    </aside>
+
+    <div class="top-bar">
+        <button class="top-bar-toggle" onclick="toggleSidebar()">&#9776;</button>
+        <a href="/dashboard" class="top-bar-title">MARDIOR</a>
+    </div>
+
     <main class="main">
         {% block content %}{% endblock %}
     </main>
+
+    <script>
+        function logout() {
+            fetch('/api/auth/logout', { method: 'POST', headers: { 'X-CSRF-Token': getCookie('mardior_csrf') } })
+                .then(function() { window.location.href = '/login'; });
+        }
+        function loadBadgeCounts() {
+            fetch('/api/email-counts')
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    document.getElementById('badge-attention').textContent = d.attention;
+                    document.getElementById('badge-responded').textContent = d.responded;
+                    document.getElementById('badge-pending').textContent = d.pending;
+                })
+                .catch(function() {});
+        }
+        loadBadgeCounts();
+        setInterval(loadBadgeCounts, 15000);
+    </script>
+
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/static/sw.js');

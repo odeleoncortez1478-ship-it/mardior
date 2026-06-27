@@ -6,32 +6,127 @@
     <span class="badge badge-success" id="status-badge">● En vivo</span>
 </div>
 
-<div class="cards-grid" hx-get="/api/stats" hx-trigger="load, every 30s" hx-swap="innerHTML">
-    <div class="card"><div class="card-label">Cargando...</div></div>
+<div class="cards-grid" id="stats-grid">
+    <div class="card"><div class="card-value">-</div><div class="card-label">📧 Emails Hoy</div></div>
+    <div class="card"><div class="card-value">-</div><div class="card-label">⏳ Pendientes</div></div>
+    <div class="card"><div class="card-value">-</div><div class="card-label">📦 Ordenes</div></div>
+    <div class="card"><div class="card-value">-</div><div class="card-label">📤 Por Enviar</div></div>
+</div>
+
+<div id="attention-section" class="section" style="display:none;">
+    <div class="section-title">⚠️ Requieren Atencion</div>
+    <div id="attention-list"></div>
+</div>
+
+<div id="attention-placeholder" class="card">
+    <p class="text-muted">No hay emails que requieran atencion</p>
+</div>
+
+<div id="reply-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <span>📧 Responder</span>
+            <button class="modal-close" onclick="closeReply()">&times;</button>
+        </div>
+        <div id="reply-email-info" class="modal-body"></div>
+        <textarea id="reply-text" class="form-input reply-textarea" rows="5" placeholder="Escribe tu respuesta..."></textarea>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeReply()">Cancelar</button>
+            <button class="btn btn-primary" id="reply-send-btn" onclick="sendReply()">Enviar Respuesta</button>
+        </div>
+    </div>
 </div>
 
 <script>
-    document.body.addEventListener('htmx:beforeSwap', function(evt) {
-        if (evt.detail.target.id === 'status-badge') return;
-        if (evt.detail.xhr.responseURL && evt.detail.xhr.responseURL.includes('/api/stats')) {
-            var data = JSON.parse(evt.detail.xhr.response);
-            var grid = evt.detail.target;
-            grid.innerHTML = `
-                <div class="card"><div class="card-value">${data.emails_today}</div><div class="card-label">📧 Emails Hoy</div></div>
-                <div class="card"><div class="card-value">${data.pending}</div><div class="card-label">⏳ Pendientes</div></div>
-                <div class="card"><div class="card-value">${data.total_orders}</div><div class="card-label">📦 Órdenes</div></div>
-                <div class="card"><div class="card-value">${data.unfulfilled_orders}</div><div class="card-label">📤 Por Enviar</div></div>
-                <div class="card"><div class="card-value">${data.tracking}</div><div class="card-label">📎 Tracking</div></div>
-                <div class="card"><div class="card-value">${data.influencers}</div><div class="card-label">📢 Influencers</div></div>
-                <div class="card"><div class="card-value">${data.ads}</div><div class="card-label">📯 Publicidad</div></div>
-                <div class="card"><div class="card-value">$${data.llm_cost}</div><div class="card-label">🤖 Costo LLM</div></div>
-            `;
-        }
-    });
-</script>
+var replyEmailId = null;
+var icons = { complaint: '❗', refund: '💰', distributor: '🏬', partnership: '🤝', influencer: '📢' };
 
-<div class="section-title">📧 Últimos Emails</div>
-<div class="table-container" hx-get="/api/emails?limit=10" hx-trigger="load, every 30s" hx-swap="innerHTML">
-    <p class="text-muted">Cargando...</p>
-</div>
+function loadDashboard() {
+    fetch('/api/stats')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var grid = document.getElementById('stats-grid');
+            grid.innerHTML =
+                '<div class="card"><div class="card-value">' + data.emails_today + '</div><div class="card-label">📧 Emails Hoy</div></div>' +
+                '<div class="card"><div class="card-value">' + data.pending + '</div><div class="card-label">⏳ Pendientes</div></div>' +
+                '<div class="card"><div class="card-value">' + data.total_orders + '</div><div class="card-label">📦 Ordenes</div></div>' +
+                '<div class="card"><div class="card-value">' + data.unfulfilled_orders + '</div><div class="card-label">📤 Por Enviar</div></div>';
+            loadAttentionEmails();
+        });
+}
+
+function loadAttentionEmails() {
+    fetch('/api/emails?filter=attention')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var section = document.getElementById('attention-section');
+            var placeholder = document.getElementById('attention-placeholder');
+            var list = document.getElementById('attention-list');
+
+            if (data.emails.length === 0) {
+                section.style.display = 'none';
+                placeholder.style.display = 'block';
+                return;
+            }
+
+            section.style.display = 'block';
+            placeholder.style.display = 'none';
+            list.innerHTML = '';
+
+            data.emails.forEach(function(e) {
+                var icon = icons[e.classification] || '📧';
+                var reason = e.attention_reason ? '<span class="badge badge-warning">' + e.attention_reason + '</span>' : '';
+                var div = document.createElement('div');
+                div.className = 'attention-card';
+                div.innerHTML =
+                    '<div class="attention-card-header">' +
+                        '<span class="attention-card-icon">' + icon + '</span>' +
+                        '<span class="attention-card-from">' + (e.from_name || e.from_address) + '</span>' +
+                        reason +
+                        '<button class="btn btn-sm btn-primary" style="margin-left:auto;" onclick="openReply(' + e.id + ', \'' + (e.from_name || e.from_address).replace(/'/g, "\\'") + '\', \'' + (e.subject || '').replace(/'/g, "\\'") + '\')">Responder</button>' +
+                    '</div>' +
+                    '<div class="attention-card-subject">' + (e.subject || '') + '</div>' +
+                    '<div class="attention-card-summary">' + (e.summary || '') + '</div>';
+                list.appendChild(div);
+            });
+        });
+}
+
+function openReply(id, from, subject) {
+    replyEmailId = id;
+    document.getElementById('reply-email-info').innerHTML = '<strong>Para:</strong> ' + from + '<br><strong>Asunto:</strong> ' + subject;
+    document.getElementById('reply-text').value = '';
+    document.getElementById('reply-modal').style.display = 'flex';
+}
+
+function closeReply() {
+    replyEmailId = null;
+    document.getElementById('reply-modal').style.display = 'none';
+}
+
+function sendReply() {
+    var text = document.getElementById('reply-text').value.trim();
+    if (!text) return;
+    var btn = document.getElementById('reply-send-btn');
+    btn.disabled = true;
+    btn.textContent = 'Enviando...';
+    var form = new FormData();
+    form.append('response_body', text);
+    fetch('/api/emails/' + replyEmailId + '/reply', {
+        method: 'POST',
+        headers: { 'X-CSRF-Token': getCookie('mardior_csrf') },
+        body: form,
+    }).then(function(r) { return r.json(); }).then(function() {
+        closeReply();
+        loadAttentionEmails();
+    }).catch(function() {
+        alert('Error al enviar respuesta');
+        btn.disabled = false;
+        btn.textContent = 'Enviar Respuesta';
+    });
+}
+
+loadDashboard();
+setInterval(loadDashboard, 30000);
+</script>
 {% endblock %}

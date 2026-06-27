@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Publicidad{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>📯 Publicidad</h1>
+</div>
+
+<div id="ads-container" hx-get="/api/emails?filter=ads" hx-trigger="load" hx-swap="innerHTML">
+    <p class="text-muted">Cargando...</p>
+</div>
+
+<script>
+document.body.addEventListener('htmx:beforeSwap', function(evt) {
+    if (evt.detail.target.id !== 'ads-container') return;
+    if (evt.detail.xhr.responseURL && evt.detail.xhr.responseURL.includes('/api/emails')) {
+        var data = JSON.parse(evt.detail.xhr.response);
+        var html = '';
+        if (data.emails.length === 0) {
+            html = '<div class="card"><p class="text-muted">No hay ofertas de publicidad</p></div>';
+        } else {
+            data.emails.forEach(function(e) {
+                var dateStr = e.received_at ? e.received_at.substring(0, 16).replace('T', ' ') : '';
+                html += '<div class="email-card">' +
+                    '<div class="email-header">' +
+                        '<span class="email-from">' + (e.from_name || e.from_address) + '</span>' +
+                        '<span class="email-date">' + dateStr + '</span>' +
+                    '</div>' +
+                    '<div class="email-subject">' + (e.subject || '(sin asunto)') + '</div>' +
+                    '<div class="email-summary">' + (e.summary || e.body_text || '') + '</div>' +
+                    '<div class="email-footer">' +
+                        '<span class="badge badge-info">📯 Publicidad</span>' +
+                    '</div>' +
+                '</div>';
+            });
+        }
+        evt.detail.target.innerHTML = html;
+        evt.detail.shouldSwap = false;
+    }
+});
+</script>
+{% endblock %}

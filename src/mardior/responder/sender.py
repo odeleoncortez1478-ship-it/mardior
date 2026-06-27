@@ -2,13 +2,12 @@ from __future__ import annotations
 
 from mardior.gmail.client import GmailClient
 from mardior.responder.templates import RESPONSE_TEMPLATES
-from mardior.config.settings import settings
 
 
 class Responder:
     def __init__(self):
         self.gmail = GmailClient()
-        self.store_name = settings.shopify_shop.replace(".myshopify.com", "").capitalize() if settings.shopify_shop else "Mi Tienda"
+        self.store_name = "Mi Tienda"
 
     async def send_tracking_response(self, email: dict, tracking_data: dict, order: dict = None) -> str:
         status = tracking_data.get("status", "unknown")

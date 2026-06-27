@@ -13,7 +13,9 @@ Base = declarative_base()
 class Order(Base):
     __tablename__ = "orders"
 
-    shopify_id = Column(Text, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    readycloud_id = Column(Text, unique=True, nullable=False)
+    source = Column(Text, default="readycloud")
     order_number = Column(Integer, nullable=False)
     customer_email = Column(Text)
     customer_name = Column(Text)
@@ -21,9 +23,9 @@ class Order(Base):
     currency = Column(Text, default="USD")
     financial_status = Column(Text)
     fulfillment_status = Column(Text)
+    shipping_price = Column(Float)
     created_at = Column(DateTime)
     updated_at = Column(DateTime)
-    raw_json = Column(Text)
     last_synced_at = Column(DateTime, server_default=func.now())
 
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
@@ -35,7 +37,7 @@ class OrderItem(Base):
     __tablename__ = "order_items"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    order_id = Column(Text, ForeignKey("orders.shopify_id"))
+    order_id = Column(Integer, ForeignKey("orders.id"))
     product_title = Column(Text)
     variant_title = Column(Text)
     quantity = Column(Integer)
@@ -49,12 +51,11 @@ class Fulfillment(Base):
     __tablename__ = "fulfillments"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    order_id = Column(Text, ForeignKey("orders.shopify_id"))
+    order_id = Column(Integer, ForeignKey("orders.id"))
     tracking_number = Column(Text)
     carrier = Column(Text)
     status = Column(Text, default="unknown")
     last_checked_at = Column(DateTime)
-    raw_json = Column(Text)
 
     order = relationship("Order", back_populates="fulfillments")
     tracking_history = relationship("TrackingHistory", back_populates="fulfillment", cascade="all, delete-orphan")
@@ -75,8 +76,11 @@ class Email(Base):
 
     classification = Column(Text)
     confidence = Column(Float)
+    summary = Column(Text)
+    needs_attention = Column(Boolean, default=False)
+    attention_reason = Column(Text)
 
-    linked_order_id = Column(Text, ForeignKey("orders.shopify_id"), nullable=True)
+    linked_order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)
     linking_method = Column(Text)
 
     tracking_fetched = Column(Boolean, default=False)
@@ -150,32 +154,29 @@ class SyncLog(Base):
     error_message = Column(Text)
 
 
-class ShippingProfile(Base):
-    __tablename__ = "shipping_profiles"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    shopify_profile_id = Column(Text, unique=True)
-    name = Column(Text)
-    raw_json = Column(Text)
-    last_synced_at = Column(DateTime, server_default=func.now())
-
-    rates = relationship("ShippingRate", back_populates="profile", cascade="all, delete-orphan")
-
-
 class ShippingRate(Base):
     __tablename__ = "shipping_rates"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    profile_id = Column(Integer, ForeignKey("shipping_profiles.id"))
     zone = Column(Text)
     carrier = Column(Text)
     method_name = Column(Text)
-    shopify_price = Column(Float)
+    store_price = Column(Float)
     real_price = Column(Float, nullable=True)
+    source = Column(Text)
     currency = Column(Text, default="USD")
     conditions = Column(Text)
+    checked_at = Column(DateTime, server_default=func.now())
 
-    profile = relationship("ShippingProfile", back_populates="rates")
+
+class AuditLog(Base):
+    __tablename__ = "audit_log"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    action = Column(Text, nullable=False)
+    ip_address = Column(Text)
+    details = Column(Text)
+    created_at = Column(DateTime, server_default=func.now())
 
 
 Index("idx_orders_email", Order.customer_email)
@@ -183,3 +184,4 @@ Index("idx_emails_from", Email.from_address)
 Index("idx_emails_class", Email.classification)
 Index("idx_fulfillments_tn", Fulfillment.tracking_number)
 Index("idx_tracking_history_fn", TrackingHistory.fulfillment_id)
+Index("idx_orders_readycloud", Order.readycloud_id)

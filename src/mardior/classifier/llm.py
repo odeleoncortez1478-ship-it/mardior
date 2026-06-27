@@ -38,6 +38,47 @@ class LLMClassifier:
 
         return category, 0.9, in_tokens, out_tokens, cost
 
+    def classify_structured(self, subject: str, from_addr: str, body: str) -> dict:
+        if not self.client:
+            return {
+                "category": "tracking", "summary": body[:200] if body else "",
+                "needs_attention": False, "attention_reason": "",
+                "input_tokens": 0, "output_tokens": 0, "cost": 0,
+            }
+
+        prompt = CLASSIFY_PROMPT.format(subject=subject[:200], from_addr=from_addr, body=body[:2000])
+
+        r = self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=300,
+            temperature=0,
+            response_format={"type": "json_object"},
+        )
+
+        usage = r.usage
+        in_tokens = usage.prompt_tokens if usage else 0
+        out_tokens = usage.completion_tokens if usage else 0
+        cost = 0
+        if self.model == "gpt-4o-mini":
+            cost = (in_tokens / 1_000_000 * 0.15) + (out_tokens / 1_000_000 * 0.60)
+
+        try:
+            data = json.loads(r.choices[0].message.content)
+        except (json.JSONDecodeError, AttributeError):
+            data = {}
+
+        valid_categories = ("tracking", "complaint", "refund", "distributor", "partnership", "influencer", "ads", "other")
+        return {
+            "category": data.get("category", "other") if data.get("category") in valid_categories else "other",
+            "summary": data.get("summary", ""),
+            "needs_attention": bool(data.get("needs_attention", False)),
+            "attention_reason": data.get("attention_reason", ""),
+            "input_tokens": in_tokens,
+            "output_tokens": out_tokens,
+            "cost": cost,
+        }
+
     def decide(
         self,
         from_name: str, from_address: str, subject: str, body: str,
