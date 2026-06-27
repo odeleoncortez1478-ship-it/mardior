@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1a1a2e">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>MARDIOR — {% block title %}Dashboard{% endblock %}</title>
+    <script src="https://unpkg.com/htmx.org@2.0.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="/static/app.css">
+</head>
+<body class="bg-dark text-light">
+    <nav class="nav">
+        <div class="nav-brand">MARDIOR</div>
+        <button class="nav-toggle" onclick="document.querySelector('.nav-menu').classList.toggle('show')">☰</button>
+        <div class="nav-menu">
+            <a href="/dashboard" class="nav-link">📊 Dashboard</a>
+            <a href="/emails" class="nav-link">📧 Emails</a>
+            <a href="/orders" class="nav-link">📦 Órdenes</a>
+            <a href="/shipping" class="nav-link">📬 Envíos</a>
+            <a href="/influencers" class="nav-link">📢 Influencers</a>
+            <a href="/settings" class="nav-link">⚙️</a>
+        </div>
+    </nav>
+    <main class="main">
+        {% block content %}{% endblock %}
+    </main>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/static/sw.js');
+        }
+    </script>
+</body>
+</html>

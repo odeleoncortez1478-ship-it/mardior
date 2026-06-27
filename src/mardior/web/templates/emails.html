@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Emails{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>📧 Bandeja Clasificada</h1>
+    <div class="filters">
+        <select class="form-input filter-select" onchange="filterEmails(this.value)">
+            <option value="">Todas</option>
+            <option value="tracking">📎 Tracking</option>
+            <option value="influencer">📢 Influencer</option>
+            <option value="ads">📯 Publicidad</option>
+            <option value="other">📥 Otros</option>
+        </select>
+    </div>
+</div>
+
+<div class="table-container" id="emails-table" hx-get="/api/emails" hx-trigger="load" hx-swap="innerHTML">
+    <p class="text-muted">Cargando...</p>
+</div>
+
+<script>
+function filterEmails(category) {
+    var url = '/api/emails';
+    if (category) url += '?classification=' + category;
+    htmx.ajax('GET', url, {target: '#emails-table', swap: 'innerHTML'});
+}
+
+document.body.addEventListener('htmx:beforeSwap', function(evt) {
+    if (evt.detail.target.id !== 'emails-table') return;
+    if (evt.detail.xhr.responseURL && evt.detail.xhr.responseURL.includes('/api/emails')) {
+        var data = JSON.parse(evt.detail.xhr.response);
+        var html = '<table class="table"><thead><tr><th>De</th><th>Asunto</th><th>Clasif.</th><th>Status</th></tr></thead><tbody>';
+        data.emails.forEach(function(e) {
+            var badge = {tracking: '📎', influencer: '📢', ads: '📯', other: '📥'}[e.classification] || '📥';
+            var resp = e.response_sent ? '✅ Respondido' : (e.classification ? '⏳ Pendiente' : '❓ Sin clasificar');
+            html += `<tr>
+                <td><small>${e.from_name || e.from_address}</small></td>
+                <td><small>${(e.subject || '').substring(0, 60)}</small></td>
+                <td>${badge} ${e.classification || '—'}</td>
+                <td>${resp}</td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        evt.detail.shouldSwap = false;
+        evt.detail.target.innerHTML = html;
+    }
+});
+</script>
+{% endblock %}

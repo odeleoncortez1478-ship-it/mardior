@@ -1,0 +1,25 @@
+# Environment
+.env
+
+# Virtual environment
+venv/
+
+# Database
+data/
+
+# Gmail OAuth tokens (but keep .gitkeep for folder structure)
+credentials/*
+!credentials/.gitkeep
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store

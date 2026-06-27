@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>📊 Dashboard</h1>
+    <span class="badge badge-success" id="status-badge">● En vivo</span>
+</div>
+
+<div class="cards-grid" hx-get="/api/stats" hx-trigger="load, every 30s" hx-swap="innerHTML">
+    <div class="card"><div class="card-label">Cargando...</div></div>
+</div>
+
+<script>
+    document.body.addEventListener('htmx:beforeSwap', function(evt) {
+        if (evt.detail.target.id === 'status-badge') return;
+        if (evt.detail.xhr.responseURL && evt.detail.xhr.responseURL.includes('/api/stats')) {
+            var data = JSON.parse(evt.detail.xhr.response);
+            var grid = evt.detail.target;
+            grid.innerHTML = `
+                <div class="card"><div class="card-value">${data.emails_today}</div><div class="card-label">📧 Emails Hoy</div></div>
+                <div class="card"><div class="card-value">${data.pending}</div><div class="card-label">⏳ Pendientes</div></div>
+                <div class="card"><div class="card-value">${data.total_orders}</div><div class="card-label">📦 Órdenes</div></div>
+                <div class="card"><div class="card-value">${data.unfulfilled_orders}</div><div class="card-label">📤 Por Enviar</div></div>
+                <div class="card"><div class="card-value">${data.tracking}</div><div class="card-label">📎 Tracking</div></div>
+                <div class="card"><div class="card-value">${data.influencers}</div><div class="card-label">📢 Influencers</div></div>
+                <div class="card"><div class="card-value">${data.ads}</div><div class="card-label">📯 Publicidad</div></div>
+                <div class="card"><div class="card-value">$${data.llm_cost}</div><div class="card-label">🤖 Costo LLM</div></div>
+            `;
+        }
+    });
+</script>
+
+<div class="section-title">📧 Últimos Emails</div>
+<div class="table-container" hx-get="/api/emails?limit=10" hx-trigger="load, every 30s" hx-swap="innerHTML">
+    <p class="text-muted">Cargando...</p>
+</div>
+{% endblock %}

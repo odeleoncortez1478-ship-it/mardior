@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Gestor de Envíos{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>📬 Gestor de Envíos</h1>
+    <div class="filters">
+        <select class="form-input filter-select" id="zone-filter" onchange="applyFilters()">
+            <option value="">Todas las zonas</option>
+        </select>
+        <select class="form-input filter-select" id="carrier-filter" onchange="applyFilters()">
+            <option value="">Todos los carriers</option>
+        </select>
+        <button class="btn btn-secondary" onclick="sortByPrice()">⬆ Precio</button>
+        <button class="btn btn-secondary" onclick="sortByPriceDesc()">⬇ Precio</button>
+    </div>
+</div>
+
+<div class="section-title">💡 Carrier más barato por zona</div>
+<div class="cards-grid" id="best-carriers" hx-get="/api/shipping/best" hx-trigger="load" hx-swap="innerHTML">
+    <p class="text-muted">Cargando...</p>
+</div>
+
+<div class="section-title">📋 Comparativa de Tarifas</div>
+<div class="table-container" id="rates-table" hx-get="/api/shipping/rates" hx-trigger="load" hx-swap="innerHTML">
+    <p class="text-muted">Cargando...</p>
+</div>
+
+<script>
+var allRates = [];
+
+document.body.addEventListener('htmx:beforeSwap', function(evt) {
+    if (evt.detail.target.id === 'best-carriers' && evt.detail.xhr.responseURL && evt.detail.xhr.responseURL.includes('/api/shipping/best')) {
+        var data = JSON.parse(evt.detail.xhr.response);
+        var html = '';
+        data.best.forEach(function(b) {
+            html += `<div class="card"><div class="card-label">${b.zone}</div><div class="card-value" style="font-size:1.2rem;">${b.carrier} $${b.price}</div><small>${b.method}</small></div>`;
+        });
+        evt.detail.target.innerHTML = html;
+        evt.detail.shouldSwap = false;
+    }
+    if (evt.detail.target.id === 'rates-table') {
+        if (evt.detail.xhr.responseURL && evt.detail.xhr.responseURL.includes('/api/shipping/rates')) {
+            var data = JSON.parse(evt.detail.xhr.response);
+            allRates = data.rates;
+            var zoneSelect = document.getElementById('zone-filter');
+            var carrierSelect = document.getElementById('carrier-filter');
+            zoneSelect.innerHTML = '<option value="">Todas las zonas</option>' + data.zones.map(function(z) { return '<option value="' + z + '">' + z + '</option>'; }).join('');
+            carrierSelect.innerHTML = '<option value="">Todos los carriers</option>' + data.carriers.map(function(c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
+            renderRates(data.rates);
+            evt.detail.shouldSwap = false;
+        }
+    }
+});
+
+function renderRates(rates) {
+    var html = '<table class="table"><thead><tr><th>Zona</th><th>Carrier</th><th>Shopify</th><th>Real</th><th>Diferencia</th><th>Recomendado</th></tr></thead><tbody>';
+    rates.forEach(function(r) {
+        var diffClass = r.difference > 0 ? 'text-danger' : 'text-success';
+        var check = r.recommended ? '✅' : '—';
+        html += `<tr>
+            <td>${r.zone}</td>
+            <td>${r.carrier}</td>
+            <td>$${r.shopify_price}</td>
+            <td>${r.real_price ? '$' + r.real_price : '—'}</td>
+            <td class="${diffClass}">${r.difference !== 0 ? (r.difference > 0 ? '+' : '') + r.difference : '—'}</td>
+            <td>${check}</td>
+        </tr>`;
+    });
+    html += '</tbody></table>';
+    document.getElementById('rates-table').innerHTML = html;
+}
+
+function applyFilters() {
+    var zone = document.getElementById('zone-filter').value;
+    var carrier = document.getElementById('carrier-filter').value;
+    var filtered = allRates;
+    if (zone) filtered = filtered.filter(function(r) { return r.zone === zone; });
+    if (carrier) filtered = filtered.filter(function(r) { return r.carrier === carrier; });
+    renderRates(filtered);
+}
+
+function sortByPrice() {
+    var sorted = [...allRates].sort(function(a, b) { return a.shopify_price - b.shopify_price; });
+    renderRates(sorted);
+}
+
+function sortByPriceDesc() {
+    var sorted = [...allRates].sort(function(a, b) { return b.shopify_price - a.shopify_price; });
+    renderRates(sorted);
+}
+</script>
+{% endblock %}

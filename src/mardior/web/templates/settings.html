@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Configuración{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>⚙️ Configuración</h1>
+</div>
+
+<div class="cards-grid">
+    <div class="card">
+        <div class="card-label">📧 Gmail API</div>
+        <p class="text-muted"><small>OAuth 2.0 — archivo credentials/gmail_oauth.json</small></p>
+        <span class="badge badge-warning">⏳ Pendiente</span>
+    </div>
+    <div class="card">
+        <div class="card-label">🤖 OpenAI (LLM)</div>
+        <p class="text-muted"><small>GPT-4o-mini</small></p>
+        <span class="badge badge-warning">⏳ Pendiente</span>
+    </div>
+    <div class="card">
+        <div class="card-label">🛒 Shopify</div>
+        <p class="text-muted"><small>Client Credentials OAuth</small></p>
+        <span class="badge badge-warning">⏳ Pendiente</span>
+    </div>
+    <div class="card">
+        <div class="card-label">📦 UPS Tracking</div>
+        <p class="text-muted"><small>Gratis, OAuth 2.0</small></p>
+        <span class="badge badge-warning">⏳ Pendiente</span>
+    </div>
+    <div class="card">
+        <div class="card-label">📦 FedEx Tracking</div>
+        <p class="text-muted"><small>Gratis, 100K req/día</small></p>
+        <span class="badge badge-warning">⏳ Pendiente</span>
+    </div>
+    <div class="card">
+        <div class="card-label">📦 USPS Tracking</div>
+        <p class="text-muted"><small>Requiere MID</small></p>
+        <span class="badge badge-warning">⏳ Pendiente</span>
+    </div>
+</div>
+
+<div class="section-title">📋 Log de Sincronización</div>
+<div class="table-container" hx-get="/api/sync/log" hx-trigger="load, every 30s" hx-swap="innerHTML">
+    <p class="text-muted">Cargando...</p>
+</div>
+
+<script>
+document.body.addEventListener('htmx:beforeSwap', function(evt) {
+    if (evt.detail.target.id !== 'sync-log-target' && evt.detail.xhr.responseURL && evt.detail.xhr.responseURL.includes('/api/sync/log')) {
+        var data = JSON.parse(evt.detail.xhr.response);
+        var html = '<table class="table"><thead><tr><th>Tipo</th><th>Inicio</th><th>Órdenes</th><th>Estado</th></tr></thead><tbody>';
+        data.logs.forEach(function(l) {
+            html += `<tr><td>${l.type}</td><td><small>${l.started_at || ''}</small></td><td>${l.orders || 0}</td><td>${l.success ? '✅' : '❌ ' + (l.error || '')}</td></tr>`;
+        });
+        html += '</tbody></table>';
+        evt.detail.target.innerHTML = html;
+        evt.detail.shouldSwap = false;
+    }
+});
+</script>
+
+<div class="section-title" style="margin-top:2rem;">🧪 Acciones</div>
+<button class="btn btn-primary" hx-post="/api/seed" hx-target="#seed-result" hx-swap="innerHTML">📥 Insertar datos de demo</button>
+<div id="seed-result" style="margin-top:0.5rem;"></div>
+{% endblock %}

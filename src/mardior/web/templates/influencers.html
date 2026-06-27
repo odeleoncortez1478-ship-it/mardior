@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Influencers{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>📢 Solicitudes de Colaboración</h1>
+</div>
+
+<div class="table-container" hx-get="/api/influencers" hx-trigger="load, every 30s" hx-swap="innerHTML">
+    <p class="text-muted">Cargando...</p>
+</div>
+
+<script>
+document.body.addEventListener('htmx:beforeSwap', function(evt) {
+    if (evt.detail.target.id === 'influencers-table') return;
+    if (evt.detail.xhr.responseURL && evt.detail.xhr.responseURL.includes('/api/influencers')) {
+        var data = JSON.parse(evt.detail.xhr.response);
+        if (!data.influencers || data.influencers.length === 0) {
+            evt.detail.target.innerHTML = '<div class="card"><p class="text-muted">No hay solicitudes de colaboración nuevas 📢</p></div>';
+            return;
+        }
+        var html = '';
+        data.influencers.forEach(function(inf) {
+            var status = inf.response_sent ? '✅ Contactado' : '🔴 Pendiente';
+            html += `<div class="card" style="margin-bottom:1rem;">
+                <div style="display:flex;justify-content:space-between;align-items:start;">
+                    <div><strong>${inf.from_name}</strong><br><small class="text-muted">${inf.from_address}</small></div>
+                    <span class="badge ${inf.response_sent ? 'badge-success' : 'badge-danger'}">${status}</span>
+                </div>
+                <p style="margin-top:0.5rem;"><strong>${inf.subject}</strong></p>
+                <p class="text-muted"><small>${(inf.body || '').substring(0, 300)}...</small></p>
+                <small class="text-muted">📅 ${inf.received_at || ''}</small>
+            </div>`;
+        });
+        evt.detail.target.innerHTML = html;
+        evt.detail.shouldSwap = false;
+    }
+});
+</script>
+{% endblock %}

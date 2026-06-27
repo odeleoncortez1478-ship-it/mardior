@@ -1,0 +1,223 @@
+from __future__ import annotations
+
+from datetime import datetime, timedelta
+from sqlalchemy.orm import Session
+from mardior.db.schema import Order, OrderItem, Fulfillment, Email, ClassificationLog, ShippingProfile, ShippingRate
+from mardior.db.storage import Storage
+
+
+def seed_demo_data():
+    storage = Storage()
+    with storage.get_session() as session:
+        if session.query(Order).count() > 0:
+            return
+
+        now = datetime.utcnow()
+
+        # ─── Orders ───
+        orders_data = [
+            {
+                "shopify_id": "gid://shopify/Order/1001",
+                "order_number": 1001,
+                "customer_email": "maria@email.com",
+                "customer_name": "María García",
+                "total_price": 89.99,
+                "currency": "USD",
+                "financial_status": "paid",
+                "fulfillment_status": "fulfilled",
+                "created_at": now - timedelta(days=5),
+                "updated_at": now - timedelta(days=3),
+            },
+            {
+                "shopify_id": "gid://shopify/Order/1002",
+                "order_number": 1002,
+                "customer_email": "carlos@email.com",
+                "customer_name": "Carlos López",
+                "total_price": 145.50,
+                "currency": "USD",
+                "financial_status": "paid",
+                "fulfillment_status": "unfulfilled",
+                "created_at": now - timedelta(days=2),
+                "updated_at": now - timedelta(days=1),
+            },
+            {
+                "shopify_id": "gid://shopify/Order/1003",
+                "order_number": 1003,
+                "customer_email": "ana@email.com",
+                "customer_name": "Ana Martínez",
+                "total_price": 250.00,
+                "currency": "MXN",
+                "financial_status": "paid",
+                "fulfillment_status": "fulfilled",
+                "created_at": now - timedelta(days=7),
+                "updated_at": now - timedelta(days=5),
+            },
+            {
+                "shopify_id": "gid://shopify/Order/1004",
+                "order_number": 1004,
+                "customer_email": "jose@email.com",
+                "customer_name": "José Hernández",
+                "total_price": 67.30,
+                "currency": "USD",
+                "financial_status": "paid",
+                "fulfillment_status": "fulfilled",
+                "created_at": now - timedelta(days=10),
+                "updated_at": now - timedelta(days=8),
+            },
+            {
+                "shopify_id": "gid://shopify/Order/1005",
+                "order_number": 1005,
+                "customer_email": "laura@email.com",
+                "customer_name": "Laura Torres",
+                "total_price": 320.00,
+                "currency": "MXN",
+                "financial_status": "paid",
+                "fulfillment_status": "in_transit",
+                "created_at": now - timedelta(days=1),
+                "updated_at": now,
+            },
+        ]
+
+        for od in orders_data:
+            session.add(Order(**od))
+
+        session.flush()
+
+        # ─── Order Items ───
+        items_data = [
+            {"order_id": "gid://shopify/Order/1001", "product_title": "Zapatos Nike Air Max", "quantity": 1, "price": 89.99, "sku": "ZK-001"},
+            {"order_id": "gid://shopify/Order/1002", "product_title": "Camisa Polo Ralph Lauren", "quantity": 2, "price": 45.00, "sku": "PL-202"},
+            {"order_id": "gid://shopify/Order/1002", "product_title": "Gorra New Era", "quantity": 1, "price": 55.50, "sku": "NE-055"},
+            {"order_id": "gid://shopify/Order/1003", "product_title": "Bolsa Michael Kors", "quantity": 1, "price": 250.00, "sku": "MK-500"},
+            {"order_id": "gid://shopify/Order/1004", "product_title": "Reloj Casio G-Shock", "quantity": 1, "price": 67.30, "sku": "GS-100"},
+            {"order_id": "gid://shopify/Order/1005", "product_title": "Audífonos Sony WH-1000XM5", "quantity": 1, "price": 320.00, "sku": "SN-999"},
+        ]
+        for it in items_data:
+            session.add(OrderItem(**it))
+
+        # ─── Fulfillments ───
+        fulf_data = [
+            {"order_id": "gid://shopify/Order/1001", "tracking_number": "1Z999AA10123456784", "carrier": "ups", "status": "delivered"},
+            {"order_id": "gid://shopify/Order/1003", "tracking_number": "79456789012345678901", "carrier": "usps", "status": "delivered"},
+            {"order_id": "gid://shopify/Order/1004", "tracking_number": "123456789012", "carrier": "fedex", "status": "delivered"},
+            {"order_id": "gid://shopify/Order/1005", "tracking_number": "1Z888BB20234567890", "carrier": "ups", "status": "in_transit"},
+        ]
+        for f in fulf_data:
+            session.add(Fulfillment(**f))
+
+        # ─── Emails ───
+        emails_data = [
+            {
+                "gmail_message_id": "msg-001", "thread_id": "thr-001",
+                "from_name": "María García", "from_address": "maria@email.com",
+                "subject": "¿Dónde está mi pedido?",
+                "body_text": "Hola, hice un pedido hace 5 días y el tracking dice entregado pero no lo recibí. ¿Pueden ayudarme?",
+                "received_at": now - timedelta(hours=2),
+                "classification": "tracking", "confidence": 0.98,
+                "linked_order_id": "gid://shopify/Order/1001", "linking_method": "email_match",
+                "tracking_fetched": True, "tracking_status": "delivered",
+                "response_sent": False,
+            },
+            {
+                "gmail_message_id": "msg-002", "thread_id": "thr-002",
+                "from_name": "Laura Torres", "from_address": "laura@email.com",
+                "subject": "Número de seguimiento",
+                "body_text": "Buen día, quería saber el número de tracking de mi pedido #1005. Gracias.",
+                "received_at": now - timedelta(hours=5),
+                "classification": "tracking", "confidence": 0.95,
+                "linked_order_id": "gid://shopify/Order/1005", "linking_method": "order_number",
+                "tracking_fetched": True, "tracking_status": "in_transit",
+                "response_sent": True, "response_body": "Tu pedido #1005 está en camino con UPS. Tracking: 1Z888BB20234567890",
+                "response_status": "sent",
+            },
+            {
+                "gmail_message_id": "msg-003", "thread_id": "thr-003",
+                "from_name": "Influencer Beauty", "from_address": "beauty.influencer@instagram.com",
+                "subject": "Colaboración — Quiero promocionar tus productos",
+                "body_text": "Hola! Soy creadora de contenido con 50K seguidores en Instagram. Me encantaría probar tus productos y hacerles review. ¿Les interesa una colaboración?",
+                "received_at": now - timedelta(hours=8),
+                "classification": "influencer", "confidence": 0.99,
+                "response_sent": False,
+            },
+            {
+                "gmail_message_id": "msg-004", "thread_id": "thr-004",
+                "from_name": "Agencia Ads Pro", "from_address": "ventas@agenciaadspro.com",
+                "subject": "Multiplica tus ventas con Google Ads",
+                "body_text": "Te ofrecemos manejo profesional de Google Ads para tu tienda. Primera semana gratis. Contáctanos para más info.",
+                "received_at": now - timedelta(hours=12),
+                "classification": "ads", "confidence": 0.97,
+                "response_sent": False,
+            },
+            {
+                "gmail_message_id": "msg-005", "thread_id": "thr-005",
+                "from_name": "Ana Martínez", "from_address": "ana@email.com",
+                "subject": "Devolución — Bolsa Michael Kors",
+                "body_text": "Compré una bolsa y llegó con un pequeño defecto. Quiero hacer una devolución. ¿Cómo procedo?",
+                "received_at": now - timedelta(days=1),
+                "classification": "tracking", "confidence": 0.85,
+                "linked_order_id": "gid://shopify/Order/1003",
+                "tracking_fetched": True, "tracking_status": "delivered",
+                "response_sent": False,
+            },
+            {
+                "gmail_message_id": "msg-006", "thread_id": "thr-006",
+                "from_name": "TikTok Influencer", "from_address": "tiktok.star@tiktok.com",
+                "subject": "Propuesta de colaboración",
+                "body_text": "Hola! Tengo 120K seguidores en TikTok y hago reviews de productos. Me gustaría recibir algunos productos para mostrarles a mi audiencia. Saludos!",
+                "received_at": now - timedelta(hours=3),
+                "classification": "influencer", "confidence": 0.98,
+                "response_sent": False,
+            },
+            {
+                "gmail_message_id": "msg-007", "thread_id": "thr-007",
+                "from_name": "Carlos López", "from_address": "carlos@email.com",
+                "subject": "¿Cuándo se envía mi pedido #1002?",
+                "body_text": "Ya pagué mi pedido hace 2 días y sigue sin enviarse. ¿Cuándo lo van a mandar?",
+                "received_at": now - timedelta(hours=1),
+                "classification": "tracking", "confidence": 0.96,
+                "linked_order_id": "gid://shopify/Order/1002", "linking_method": "email_match",
+                "tracking_fetched": False,
+                "response_sent": False,
+            },
+        ]
+        email_objs = []
+        for e in emails_data:
+            obj = Email(**e)
+            session.add(obj)
+            email_objs.append(obj)
+        session.flush()
+
+        # ─── Classification Logs ───
+        for email_obj, email_data in zip(email_objs, emails_data):
+            session.add(ClassificationLog(
+                email_id=email_obj.id, model_used="gpt-4o-mini",
+                input_tokens=450, output_tokens=15, cost=0.00015,
+                raw_prompt=f"Clasifica: {email_data['subject'][:50]}",
+                raw_response=email_data["classification"],
+            ))
+
+        # ─── Shipping Profiles (demo) ───
+        sp = ShippingProfile(
+            shopify_profile_id="gid://shopify/DeliveryProfile/1",
+            name="Perfil General",
+        )
+        session.add(sp)
+        session.flush()
+
+        rates_data = [
+            {"profile_id": sp.id, "zone": "México", "carrier": "UPS", "method_name": "UPS Standard", "shopify_price": 15.00, "real_price": 8.50},
+            {"profile_id": sp.id, "zone": "México", "carrier": "FedEx", "method_name": "FedEx Economy", "shopify_price": 12.00, "real_price": 9.00},
+            {"profile_id": sp.id, "zone": "México", "carrier": "USPS", "method_name": "USPS Priority", "shopify_price": 20.00, "real_price": 6.00},
+            {"profile_id": sp.id, "zone": "Estados Unidos", "carrier": "UPS", "method_name": "UPS Ground", "shopify_price": 12.00, "real_price": 12.00},
+            {"profile_id": sp.id, "zone": "Estados Unidos", "carrier": "FedEx", "method_name": "FedEx Ground", "shopify_price": 11.50, "real_price": 11.50},
+            {"profile_id": sp.id, "zone": "Estados Unidos", "carrier": "USPS", "method_name": "USPS First", "shopify_price": 13.50, "real_price": 13.50},
+            {"profile_id": sp.id, "zone": "Canadá", "carrier": "UPS", "method_name": "UPS Standard", "shopify_price": 18.00, "real_price": 14.00},
+            {"profile_id": sp.id, "zone": "Canadá", "carrier": "FedEx", "method_name": "FedEx Economy", "shopify_price": 22.00, "real_price": 18.50},
+            {"profile_id": sp.id, "zone": "Canadá", "carrier": "USPS", "method_name": "USPS Priority", "shopify_price": 25.00, "real_price": 10.00},
+            {"profile_id": sp.id, "zone": "Europa", "carrier": "UPS", "method_name": "UPS Express", "shopify_price": 35.00, "real_price": 28.00},
+            {"profile_id": sp.id, "zone": "Europa", "carrier": "FedEx", "method_name": "FedEx Intl", "shopify_price": 40.00, "real_price": 32.00},
+        ]
+        for r in rates_data:
+            session.add(ShippingRate(**r))
+
+        session.commit()
